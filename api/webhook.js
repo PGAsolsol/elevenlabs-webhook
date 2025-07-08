@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 export default async function handler(req, res) {
   // Získání tajného klíče z prostředí
-  const secret = process.env.ELEVENLABS_HMAC_SECRET;
+  const secret = process.env.ELEVENLABS_HMAC_SECRET || 'wsec_bef20e656f14c537bdd0c7524f6f7f9226f97caa9425ec8755fb8287e0171b1f';
 
   // 👉 Přidej debug výpis hned tady:
   console.log('🔍 HMAC secret (env):', secret);
