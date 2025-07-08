@@ -1,0 +1,11 @@
+{
+  "name": "elevenlabs-webhook",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "api/webhook.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node api/webhook.js"
+  },
+  "dependencies": {}
+}
