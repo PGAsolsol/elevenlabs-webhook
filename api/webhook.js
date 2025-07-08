@@ -1,42 +1,39 @@
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
+  // Získání tajného klíče z prostředí
   const secret = process.env.ELEVENLABS_HMAC_SECRET;
 
+  // Kontrola, zda klíč existuje
   if (!secret) {
-  console.error('❌ Missing HMAC secret: process.env.ELEVENLABS_HMAC_SECRET is undefined');
-  return res.status(500).json({ error: 'Server misconfiguration: missing HMAC secret' });
+    console.error('❌ Missing HMAC secret: process.env.ELEVENLABS_HMAC_SECRET is undefined');
+    return res.status(500).json({ error: 'Missing HMAC secret' });
   }
 
-  const sigHeader = req.headers['x-elevenlabs-signature'];
+  // Získání podpisu z hlavičky
+  const signature = req.headers['x-elevenlabs-signature'];
+
+  if (!signature) {
+    return res.status(400).json({ error: 'Missing HMAC signature header' });
+  }
+
+  // Získání raw těla
   const rawBody = JSON.stringify(req.body);
 
-  const expectedSig = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  // Výpočet očekávaného podpisu
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(rawBody)
+    .digest('hex');
 
-  if (sigHeader !== expectedSig) {
-    return res.status(401).json({ message: 'Invalid HMAC signature' });
+  // Porovnání podpisů
+  if (signature !== expectedSignature) {
+    console.warn('⚠️ Invalid HMAC signature');
+    return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  const payload = req.body;
+  // ✅ Validní požadavek – zpracování payloadu
+  console.log('✅ Webhook verified. Data:', req.body);
 
-  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/calls`, {
-    method: 'POST',
-    headers: {
-      'apikey': process.env.SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      timestamp: new Date().toISOString(),
-      caller: payload.caller_id || 'unknown',
-      transcript: payload.transcript || '',
-      metadata: payload
-    })
-  });
-
-  if (!response.ok) {
-    return res.status(500).json({ message: 'Failed to save to Supabase' });
-  }
-
-  return res.status(200).json({ message: 'OK' });
+  return res.status(200).json({ message: 'Webhook received' });
 }
