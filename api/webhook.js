@@ -4,6 +4,9 @@ export default async function handler(req, res) {
   // Získání tajného klíče z prostředí
   const secret = process.env.ELEVENLABS_HMAC_SECRET;
 
+  // 👉 Přidej debug výpis hned tady:
+  console.log('🔍 HMAC secret (env):', secret);
+
   // Kontrola, zda klíč existuje
   if (!secret) {
     console.error('❌ Missing HMAC secret: process.env.ELEVENLABS_HMAC_SECRET is undefined');
