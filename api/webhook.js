@@ -2,6 +2,12 @@ import crypto from 'crypto';
 
 export default async function handler(req, res) {
   const secret = process.env.ELEVENLABS_HMAC_SECRET;
+
+  if (!secret) {
+  console.error('❌ Missing HMAC secret: process.env.ELEVENLABS_HMAC_SECRET is undefined');
+  return res.status(500).json({ error: 'Server misconfiguration: missing HMAC secret' });
+  }
+
   const sigHeader = req.headers['x-elevenlabs-signature'];
   const rawBody = JSON.stringify(req.body);
 
