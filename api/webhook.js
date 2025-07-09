@@ -1,42 +1,59 @@
-import crypto from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
+import { NextApiRequest, NextApiResponse } from 'next';
 
-export default async function handler(req, res) {
-  // Získání tajného klíče z prostředí
-  const secret = process.env.ELEVENLABS_HMAC_SECRET || 'wsec_bef20e656f14c537bdd0c7524f6f7f9226f97caa9425ec8755fb8287e0171b1f';
+const SHARED_SECRET = process.env.ELEVENLABS_WEBHOOK_SECRET!;
 
-  // 👉 Přidej debug výpis hned tady:
-  console.log('🔍 HMAC secret (env):', secret);
+export const config = {
+  api: {
+    bodyParser: false, // Required to access raw body
+  },
+};
 
-  // Kontrola, zda klíč existuje
-  if (!secret) {
-    console.error('❌ Missing HMAC secret: process.env.ELEVENLABS_HMAC_SECRET is undefined');
-    return res.status(500).json({ error: 'Missing HMAC secret' });
+function buffer(req: NextApiRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: any[] = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    const rawBody = await buffer(req);
+    const signatureHeader = req.headers['elevenlabs-signature'] as string;
+
+    if (!signatureHeader) {
+      return res.status(400).send('Missing ElevenLabs-Signature header');
+    }
+
+    // Extract timestamp and v1 signature
+    const [timestampPart, v1Part] = signatureHeader.split(',');
+    const timestamp = timestampPart.split('=')[1];
+    const signature = v1Part.split('=')[1];
+
+    // Construct the payload string for signing
+    const payloadToSign = `${timestamp}.${rawBody.toString()}`;
+
+    const hmac = createHmac('sha256', SHARED_SECRET);
+    const expectedSignature = hmac.update(payloadToSign).digest('hex');
+
+    const isValid = timingSafeEqual(
+      Buffer.from(expectedSignature, 'utf8'),
+      Buffer.from(signature, 'utf8')
+    );
+
+    if (!isValid) {
+      return res.status(401).send('Invalid signature');
+    }
+
+    // Continue processing the event
+    const eventData = JSON.parse(rawBody.toString());
+    console.log('✅ Verified Event:', eventData);
+
+    res.status(200).send('Webhook received');
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(500).send('Server error');
   }
-
-  // Získání podpisu z hlavičky
-  const signature = req.headers['x-elevenlabs-signature'];
-
-  if (!signature) {
-    return res.status(400).json({ error: 'Missing HMAC signature header' });
-  }
-
-  // Získání raw těla
-  const rawBody = JSON.stringify(req.body);
-
-  // Výpočet očekávaného podpisu
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(rawBody)
-    .digest('hex');
-
-  // Porovnání podpisů
-  if (signature !== expectedSignature) {
-    console.warn('⚠️ Invalid HMAC signature');
-    return res.status(401).json({ error: 'Invalid signature' });
-  }
-
-  // ✅ Validní požadavek – zpracování payloadu
-  console.log('✅ Webhook verified. Data:', req.body);
-
-  return res.status(200).json({ message: 'Webhook received' });
 }
