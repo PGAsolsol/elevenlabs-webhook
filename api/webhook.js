@@ -16,9 +16,9 @@ function buffer(req) {
 }
 
 export default async function handler(req, res) {
-  const SHARED_SECRET = process.env.ELEVENLABS_WEBHOOK_SECRET;
+  const SHARED_SECRET = process.env.ELEVENLABS_HMAC_SECRET;
   if (!SHARED_SECRET) {
-    console.error('❌ Chybí ELEVENLABS_WEBHOOK_SECRET v prostředí!');
+    console.error('❌ Chybí ELEVENLABS_HMAC_SECRET v prostředí!');
     return res.status(500).send('Missing shared secret');
   }
 
